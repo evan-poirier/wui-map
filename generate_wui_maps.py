@@ -8,15 +8,20 @@
 
 # Imports
 ####################################################################################################
-from config import *
+import sys
+sys.path.append(r"C:\Users\2021e\Desktop\Research\montana_wui_mapping\new\scripts")
+from wui_config import *
 
 # Paths
 ####################################################################################################
 # main folders
-output = space + "wui_map_output\\" 
-temp = space + "temp\\"
-raw = space + "raw_input_data\\"
+all_outputs = space + "wui_map_output\\" 
+intermediary = space + "wui_intermediary\\"
 prepared = space + "prepared_input_data\\"
+
+# yearly folders
+temp = intermediary + "2012\\"
+output = all_outputs + "2012\\"
 
 # ketchpaw test
 kp_test_prepared = prepared + "ketchpaw_test_prepared\\"
@@ -24,21 +29,18 @@ kp_test_prepared = prepared + "ketchpaw_test_prepared\\"
 
 # Preparation functions
 #############################################################################################################
-def clearTempDirectory():
-    print("Clearing temp directory.")
-    for filename in os.listdir(temp):
-        curr_file = os.path.join(temp, filename)
-        try:
-            if os.path.isfile(curr_file) or os.path.islink(curr_file):
-                os.remove(curr_file)
-            elif os.path.isdir(curr_file):
-                shutil.rmtree(curr_file)
-            print(f"Deleted: {curr_file}")
-        except Exception as e:
-            print(f"Failed to delete {curr_file}: {e}")
-    gc.collect()
+# Make sure that NLCD raster, boundary, and house polygons/points are using the desired projection
+def checkProjections(map_name, curr_nlcd, curr_address_points, curr_study_area):
+    projected_objects = [curr_address_points, curr_study_area, curr_nlcd]
+    print(f"{map_name}: checking object projections.")
+    for projected_object in projected_objects:
+        description = arcpy.Describe(projected_object)
+        spatial_ref = description.spatialReference
+        if spatial_ref.factoryCode != projection_factory_code:
+            print("\t" + description.name + " has factory code of " + str(spatial_ref.factoryCode) + " and needs to be reprojected.")
+        else:
+            print("\t" + description.name + " does not need to be reprojected.")
 
-# MOVE THIS ONE TO PREPARATION SCRIPT 
 # Ensure proper 'value1' field for housing file
 def addValue1(map_name, curr_address_points):
     print(f"{map_name}: managing value1 field in housing .shp file.")
@@ -198,26 +200,27 @@ def calcWUI(map_name, buffer, curr_study_area):
 
 
 def createMaps(map_name, buffer):
+    # create intermediary and output directories for given year
+    os.makedirs(intermediary + map_name, exist_ok=True)
+    os.makedirs(all_outputs + map_name, exist_ok=True)
+
     # decide which source data to use
     if (map_name == "ketchpaw-replication-test"):
         curr_address_points = kp_test_prepared + "SiteStructureAddressPoints.shp"
         curr_nlcd = kp_test_prepared + "ketchpaw_nlcd_projected_clipped_2.tif"
         curr_study_area = kp_test_prepared + "flathead_county.shp"
     else:
-        curr_address_points = address_points + map_name + "_address_points.shp"
-        curr_nlcd = nlcd_projected_clipped + "nlcd_" + map_name + "_pc.tif"
-        curr_study_area = study_areas + "StateofMontanaBuffered.shp"
+        curr_address_points = prepared +  map_name + "\\ap_" + map_name + ".shp"
+        curr_nlcd = prepared +  map_name + "\\nlcd_" + map_name + ".tif"
+        curr_study_area = prepared + "\\constant\\StateofMontana.shp"
+        temp = intermediary + "\\" + map_name + "\\"
+        output = all_outputs + "\\" + map_name + "\\"
 
     print(f"Creating map {map_name} using NLCD raster '{curr_nlcd}' and address points '{curr_address_points}'.")
 
-    # clear temp directory
-    # clearTempDirectory()
-
     # generate centroids, water, and wildland areas - run for each year
-    # wildlandBaseRaster(map_name, curr_nlcd)
-    # waterRaster(map_name, curr_nlcd)
-
-    # start here when going off of pre-set wildland/water
+    wildlandBaseRaster(map_name, curr_nlcd)
+    waterRaster(map_name, curr_nlcd)
     addValue1(map_name, curr_address_points)
     footprintCentroids(map_name, curr_address_points)
     findWildlandAreas(map_name)

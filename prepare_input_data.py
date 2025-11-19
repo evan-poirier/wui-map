@@ -7,25 +7,41 @@
 
 # Imports
 ####################################################################################################
-from config import *
+import sys
+sys.path.append(r"C:\Users\2021e\Desktop\Research\montana_wui_mapping\new\scripts") 
+from wui_config import *
 
-# Paths
-####################################################################################################
-
+# Constants
+#########################################################################################################
 # raw data
-raw_data = space + "raw_input_data\\"
-
-# temp
-temp = space + "temp\\"
+raw_address_points = space + "raw_input_data\\address_points_raw\\"
+raw_nlcd = space + "raw_input_data\\NLCD_raw\\"
+raw_state_boundary = space + "raw_input_data\\state_boundary_raw\\StateofMontana.shp"
 
 # prepared data
 prepared_data = space + "prepared_input_data\\"
 
+# best address point fc for east year
+best_ap_fcs = {
+    2012: "STR_Point",
+    2013: "STR_Point",
+    2014: "STR_Point",
+    2015: "STR_Point",
+    2016: "STR_Point",
+    2017: "STR_Point",
+    2018: "STR_Point",
+    2019: "STR_Point",
+    2020: "SiteStructureAddressPoints",
+    2021: "SiteStructureAddressPoints",
+    2022: "SiteStructureAddressPoints",
+    2023: "SiteStructureAddressPoint",
+    2024: "SiteStructureAddressPoint"
+}
 
-
-# Previously used functions
+# Functions
 ####################################################################################################
-def bufferBoundary(input_boundary, buffered_boundary):
+# buffer the input boundary by 100m and save to specified path
+def buffer_boundary(input_boundary, buffered_boundary):
     buffer_distance = "100 meters"
     arcpy.Buffer_analysis(
         in_features=input_boundary,
@@ -38,6 +54,8 @@ def bufferBoundary(input_boundary, buffered_boundary):
     )
     print("Boundary buffer completed.")
 
+
+# project input raster to NAD 1983 (2011) Montana (factory code 6514) and save to specified path
 def projectNLCDRaster(input_raster_path, output_raster_path):
     arcpy.management.ProjectRaster(
         in_raster=input_raster_path,
@@ -50,71 +68,103 @@ def projectNLCDRaster(input_raster_path, output_raster_path):
         in_coor_system='PROJCS["AEA_WGS84",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Albers"],PARAMETER["False_Easting",0.0],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",-96.0],PARAMETER["Standard_Parallel_1",29.5],PARAMETER["Standard_Parallel_2",45.5],PARAMETER["Latitude_Of_Origin",23.0],UNIT["Meter",1.0]]',
         vertical="NO_VERTICAL"
     )
-
-def clipNLCD(map_name):
-    clipped_NLCD_raster = ExtractByMask(curr_nlcd, study_area)
-    clipped_NLCD_raster.save(nlcd_projected_clipped + "nlcd_" + str(map_name) + "_pc.tif")
-    print(f"{map_name}: NLCD raster clipping completed.")
+    print("Finished projecting " + input_raster_path + " saved to " + output_raster_path)
 
 
-# Data preparation functions
-####################################################################################################
-def clearTempDirectory():
-    print("Clearing temp directory.")
-    for filename in os.listdir(temp):
-        curr_file = os.path.join(temp, filename)
-        try:
-            if os.path.isfile(curr_file) or os.path.islink(curr_file):
-                os.remove(curr_file)
-            elif os.path.isdir(curr_file):
-                shutil.rmtree(curr_file)
-            print(f"Deleted: {curr_file}")
-        except Exception as e:
-            print(f"Failed to delete {curr_file}: {e}")
+# reproject a feature class to the global specified factory code and store it in the scratch GDB
+def reproject_fc_to_scratch(fc, output_name):
+    target_sr = arcpy.SpatialReference(projection_factory_code)
+
+    arcpy.management.Project(
+        in_dataset=fc,
+        out_dataset=arcpy.env.scratchGDB + "\\" + output_name,
+        out_coor_system=projection_factory_code
+    )
+
+    print("Reprojected " + fc + " to factory code " + str(projection_factory_code))
 
 
-# Make sure that NLCD raster, boundary, and house polygons/points are using the desired projection
-def checkProjections(map_name, curr_nlcd, curr_address_points, curr_study_area):
-    projected_objects = [curr_address_points, curr_study_area, curr_nlcd]
-    print(f"{map_name}: checking object projections.")
-    for projected_object in projected_objects:
-        description = arcpy.Describe(projected_object)
-        spatial_ref = description.spatialReference
-        if spatial_ref.factoryCode != projection_factory_code:
-            print("\t" + description.name + " has factory code of " + str(spatial_ref.factoryCode) + " and needs to be reprojected.")
-        else:
-            print("\t" + description.name + " does not need to be reprojected.")
+# make sure directory for given year exists in prepared data folder
+def prepare_curr_year_directory(year):
+    os.makedirs(prepared_data + str(year), exist_ok=True)
+    print("Prepared data directory for " + str(year) + " exists")
 
 
-# Ensure proper 'value1' field for housing file
-def addValue1(map_name, curr_address_points):
-    print(f"{map_name}: managing value1 field in housing .shp file.")
-    # Check if 'value1' field already exists, add it if not
-    fields = [field.name for field in arcpy.ListFields(curr_address_points)]
-    if "value1" not in fields:
-        arcpy.AddField_management(curr_address_points, "value1", "SHORT")
-        print("\tHousing shapefile did not have value1 field, it has been added.")
-    else:
-        print("\tHousing shapefile already had value1 field.")
+# prepare NLCD rasters and save to prepared data folder
+def prepare_nlcds(year):
+    # project NLCD raster and save in scratch GDB
+    projectNLCDRaster(
+        raw_nlcd + "Annual_NLCD_LndCov_" + str(year) + "_CU_C1V1.tif",
+        arcpy.env.scratchGDB + "\\" + "temp_nlcd_projected_" + str(year) 
+    )
 
-    # Set value1 = 1 for all rows
-    with arcpy.da.UpdateCursor(curr_address_points, ["value1"]) as cursor:
-        for row in cursor:
-            row[0] = 1
-            cursor.updateRow(row)
-    print("\tSet value1 = 1 for all rows in housing shapefile.")
+    # clip projected NLCD
+    curr_clipped_nlcd = ExtractByMask(
+        arcpy.env.scratchGDB + "\\" + "temp_nlcd_projected_" + str(year),
+        prepared_data + "constant\\state_buff.shp"
+    )
+
+    # save clipped NLCD to respective year folder
+    curr_clipped_nlcd.save(
+        prepared_data + str(year) + "\\" + "nlcd_" + str(year) + ".tif"
+    )
+    print("Finished preparing " + str(year) + " nlcd raster")
+
+
+# prepare address points and save to prepared data folder
+def prepare_address_points(year):
+    # reproject address point feature classes; store in scratch GDB
+    curr_ap_fc = raw_address_points + "Structures" + str(year) + ".gdb\\" + best_ap_fcs[year]
+    proj_fc_new_name = "ap_" + str(year)
+    reproject_fc_to_scratch(curr_ap_fc, proj_fc_new_name)
+
+    # save address point fcs from scratch GDB to yearly directories
+    arcpy.management.CopyFeatures(
+        arcpy.env.scratchGDB + "\\ap_" + str(year),
+        prepared_data + str(year) + "\\" + "ap_" + str(year) + ".shp"
+    )
+    print("Finished preparing " + str(year) + " address point shapefile")
+
+
+# buffer state boundary
+def buffer_state_boundary():
+    buffer_boundary(
+        raw_state_boundary,
+        prepared_data + "constant\\state_buff.shp"
+    )
+    print("Finished buffering state boundary")
+
+
+# # print contents of scratch GDB
+# def print_scratch_gdb():
+#     scratch_gdb = arcpy.env.scratchGDB
+
+#     # Walk through the geodatabase
+#     for dirpath, dirnames, filenames in arcpy.da.Walk(scratch_gdb, datatype=["FeatureClass", "RasterDataset", "Table", "FeatureDataset"]):
+#         # Delete feature classes, rasters, tables
+#         for name in filenames:
+#             print(name)
+        
+#         # Delete feature datasets
+#         for name in dirnames:
+#             print(name)
+#     print("Finished printing contents of scratch gdb")
 
 
 # Main
 #############################################################################################################
 if __name__ == "__main__":
+    print(arcpy.env.workspace)
+    # buffer montana state boundary
+    # buffer_state_boundary()
 
-
-
-    projectNLCDRaster(nlcd_path, nlcd_output_path)
-    bufferBoundary(study_area, buffered_study_area)
-    
-
-    # main process
+    # apply to all years
     for year in study_years:
-        print("placeholder")
+        # make current year directory in 'prepared_data' directory
+        # prepare_curr_year_directory(year)
+
+        # prepare address points (done)
+        # prepare_address_points(year)
+
+        # prepare nlcds
+        prepare_nlcds(year)
