@@ -238,7 +238,7 @@ def createMaps(map_name, buffer):
 #############################################################################################################
 if __name__ == "__main__":
 
-    curr_maps = ["ketchpaw-replication-test"]
+    curr_maps = study_years
     curr_buffer = 500
 
     for curr_map in curr_maps:
