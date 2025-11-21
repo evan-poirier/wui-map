@@ -196,7 +196,7 @@ def calcWUI(map_name, buffer, curr_study_area, temp, output):
 
 
 def createMaps(map_name, buffer):
-    print(f"Creating map {map_name} using NLCD raster '{curr_nlcd}' and address points '{curr_address_points}'.")
+    print(f"Creating map {map_name}")
 
     # create intermediary and output directories for given year
     os.makedirs(intermediary + map_name, exist_ok=True)
@@ -207,22 +207,24 @@ def createMaps(map_name, buffer):
     curr_nlcd = prepared +  map_name + "\\nlcd_" + map_name + ".tif"
     curr_study_area = prepared + "\\constant\\StateofMontana.shp"
     temp = intermediary + "\\" + map_name + "\\"
-    output = all_outputs + "\\" + map_name + "\\"    
+    output = all_outputs + "\\" + map_name + "\\"
+
+    print(f"Using NLCD raster '{curr_nlcd}' and address points '{curr_address_points}' to create map {map_name}.")
 
     # generate centroids, water, and wildland areas - run for each year
-    wildlandBaseRaster(map_name, curr_nlcd)
-    waterRaster(map_name, curr_nlcd)
+    wildlandBaseRaster(map_name, curr_nlcd, temp)
+    waterRaster(map_name, curr_nlcd, temp)
     addValue1(map_name, curr_address_points)
-    footprintCentroids(map_name, curr_address_points)
-    findWildlandAreas(map_name)
+    footprintCentroids(map_name, curr_address_points, temp)
+    findWildlandAreas(map_name, temp)
 
     # calculate WUI - run for each year and neighborhood buffer size
-    makeNeighborhoods(map_name, buffer)
-    neighborhoodDensity(map_name, buffer)
-    replaceNoData(map_name, buffer)
-    removeWater(map_name, buffer)
-    calcWildlandCover(map_name, buffer)
-    calcWUI(map_name, buffer, curr_study_area)
+    makeNeighborhoods(map_name, buffer, temp)
+    neighborhoodDensity(map_name, buffer, temp)
+    replaceNoData(map_name, buffer, temp)
+    removeWater(map_name, buffer, temp)
+    calcWildlandCover(map_name, buffer, temp)
+    calcWUI(map_name, buffer, curr_study_area, temp, output)
 
     print(f"Done with map {map_name}")
 
@@ -231,11 +233,10 @@ def createMaps(map_name, buffer):
 #############################################################################################################
 if __name__ == "__main__":
 
-    curr_maps = study_years
+    curr_maps = [str(year) for year in range(2017, 2025)]
     curr_buffer = 500
 
     for curr_map in curr_maps:
-        print(type(curr_map))
         try:
             createMaps(curr_map, curr_buffer)
         except Exception as e:
