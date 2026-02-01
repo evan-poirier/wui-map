@@ -15,12 +15,11 @@ arcpy.CheckOutExtension("Spatial")                                              
 arcpy.env.addOutputsToMap = False                                                                       # Don't let script add layers to map
 arcpy.env.cellSize = 30                                                                                 # Set default raster cell size to 30m
 arcpy.env.overwriteOutput = True                                                                        # Allow files to be overwritten
-arcpy.env.workspace = "C:\\Users\\2021e\\Desktop\\Research\\montana_wui_mapping\\new\\"  # Make sure all input files are in this folder
-
+arcpy.env.workspace = "C:\\Users\\espoirier\\Desktop\\Research\\Mapping\\Montana\\point_and_raster_data\\"  # Make sure all input files are in this folder
 
 # Variables
 #############################################################################################################
-space = "C:\\Users\\2021e\\Desktop\\Research\\montana_wui_mapping\\new\\"        # Make sure all other input files are in this folder!
+space = "C:\\Users\\espoirier\\Desktop\\Research\\Mapping\\Montana\\point_and_raster_data\\"        # Make sure all other input files are in this folder!
 NAD_1983_2011_SP_Montana = arcpy.SpatialReference(6514)                              # Spatial reference object for the NAD 1983 (2011) StatePlane Montana FIPS 2500 (Meters) projection
 projection_factory_code = 6514         # Factory code for the NAD 1983 (2011) StatePlane Montana FIPS 2500 (Meters) projection
 

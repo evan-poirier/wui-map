@@ -4,12 +4,12 @@
 # Script adapted from original code by Dr. Dapeng Li in the Department of Geography and the Environment at the University of Alabama.
 # This script generates WUI maps using the moving window method introduced by Bar-Massada, et. al.
 # Inputs: NLCD raster data, building polygon or point data, and a boundary polygon.
-# See 'settings' and 'paths' sections before running program.
+# See 'imports' and 'paths' sections before running program.
 
 # Imports
 ####################################################################################################
 import sys
-sys.path.append(r"C:\Users\2021e\Desktop\Research\montana_wui_mapping\new\scripts")
+sys.path.append(r"C:\Users\espoirier\Desktop\Research\Mapping\Montana\scripts\wui-map")
 from wui_config import *
 
 # Paths
@@ -18,10 +18,6 @@ from wui_config import *
 all_outputs = space + "wui_map_output\\" 
 intermediary = space + "wui_intermediary\\"
 prepared = space + "prepared_input_data\\"
-
-# ketchpaw test
-kp_test_prepared = prepared + "ketchpaw_test_prepared\\"
-
 
 # Preparation functions
 #############################################################################################################
@@ -203,7 +199,7 @@ def createMaps(map_name, buffer):
     os.makedirs(all_outputs + map_name, exist_ok=True)
 
     # define paths
-    curr_address_points = prepared +  map_name + "\\ap_" + map_name + ".shp"
+    curr_address_points = prepared +  map_name + "\\ap_f_" + map_name + ".shp"
     curr_nlcd = prepared +  map_name + "\\nlcd_" + map_name + ".tif"
     curr_study_area = prepared + "\\constant\\StateofMontana.shp"
     temp = intermediary + "\\" + map_name + "\\"
@@ -211,6 +207,10 @@ def createMaps(map_name, buffer):
 
     print(f"Using NLCD raster '{curr_nlcd}' and address points '{curr_address_points}' to create map {map_name}.")
 
+    # check input data - run for each year
+    checkProjections(map_name, curr_nlcd, curr_address_points, curr_study_area)
+    addValue1(map_name, curr_address_points)
+    
     # generate centroids, water, and wildland areas - run for each year
     wildlandBaseRaster(map_name, curr_nlcd, temp)
     waterRaster(map_name, curr_nlcd, temp)
@@ -233,7 +233,7 @@ def createMaps(map_name, buffer):
 #############################################################################################################
 if __name__ == "__main__":
 
-    curr_maps = [str(year) for year in range(2017, 2025)]
+    curr_maps = [str(year) for year in range(2012, 2025)]
     curr_buffer = 500
 
     for curr_map in curr_maps:
