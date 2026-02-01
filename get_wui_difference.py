@@ -8,37 +8,19 @@ from wui_config import *
 # Main
 #############################################################################################################
 if __name__ == "__main__":
-    # .shp file that each year's aggregations will be added to
-    county_polygons = space + "county_level_data\\County.shp"
+    # WUI rasters to compare
+    old_raster = space + "point_and_raster_data\\wui_map_output\\2012\\2012.tif"
+    new_raster = space + "point_and_raster_data\\wui_map_output\\2024\\2024.tif"
 
-    for year in range(2021, 2025):
-        print("Tabulating address point count for year " + str(year))
+    # Reclassify 2012 Raster:
+    old_raster_binary = Con(old_raster == 2, 1, old_raster)
 
-        # object paths
-        ap_shp = space + "point_and_raster_data\\prepared_input_data\\" + str(year) + "\\ap_" + str(year) + ".shp"
-        curr_tabulated_areas_table = os.path.join(env.scratchGDB, "tabulated_ap_table_" + str(year))
+    # Reclassify 2024 Raster:
+    new_raster_binary = Con(new_raster == 2, 1, new_raster)
 
-        # count the number of address points within each county polygon
-        arcpy.analysis.SummarizeWithin(
-            in_polygons=county_polygons,
-            in_sum_features=ap_shp,
-            out_feature_class=curr_tabulated_areas_table,
-            keep_all_polygons="KEEP_ALL" # Keep all counties, even those with 0 points
-        )
+    # Find difference
+    difference_raster = new_raster_binary - old_raster_binary
 
-        # create renamed fields
-        arcpy.management.AddField(curr_tabulated_areas_table, "ap_" + str(year), "DOUBLE")
-        arcpy.management.CalculateField(
-            curr_tabulated_areas_table, "ap_" + str(year), "!Point_Count!", "PYTHON3"
-        )
+    # Save difference raster
+    difference_raster.save(space + "point_and_raster_data\\total_wui_difference_output\\total_diff.tif")
 
-        # join aggregations back to main table
-        arcpy.management.JoinField(
-            in_data=county_polygons,
-            in_field="COUNTYNUMB",
-            join_table=curr_tabulated_areas_table,
-            join_field="COUNTYNUMB",
-            fields = ["ap_" + str(year)]
-        )
-        
-        print("Finished tabulating " + str(year) + ".")
